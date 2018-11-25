@@ -20,13 +20,17 @@ const byte IODIRB = 0x01;
 const byte statePortA = 0x00;
 const byte statePortB = 0x00;
 
+const byte interruptPin = 2;
+
 // Configuration
-byte Volts[] = { chip1,IODIRA, 0x01 };
-byte Oil_Pressure[] = { chip1,IODIRA, 0x02 };
-byte Low_Fuel[] = { chip1,IODIRA, 0x03 };
+byte Volts[] = { chip1,GPIOA, 0x07 };
+byte Oil_Pressure[] = { chip1,GPIOA, 0x02 };
+byte Low_Fuel[] = { chip1,GPIOA, 0x03 };
 
 void setup()
 {
+  Serial.begin(9600);
+  
   //Send settings to MCP device
   Wire.begin();              // join i2c bus (address optional for master)
 
@@ -39,37 +43,40 @@ void setup()
   Wire.write(IODIRB); // IODIRB register
   Wire.write((byte)0x00); // set all of bank B to outputs 
   Wire.endTransmission();
-  
+
+//  pinMode(interruptPin, INPUT_PULLUP);
+//  attachInterrupt(digitalPinToInterrupt(interruptPin), blink, RISING);
 }
 
 void loop()
 {
 
-  turnOn(Volts);
-  
-  Wire.beginTransmission(chip1);
-  Wire.write(GPIOB);      // address bank B
-  Wire.write((byte)0xFF);  // value to send - all HIGH
-  
-  Wire.endTransmission();
+  byte incomingByte;
 
-  send_byte(chip1, GPIOA, 0xFF);
-  
-  delay(500);
+  if (Serial.available() > 0) {
+      // read the incoming byte:
+      incomingByte = Serial.read();
 
-  Wire.beginTransmission(chip1);
-  Wire.write(GPIOB);    // address bank B
-  Wire.write((byte)0x00);  // value to send - all LOW
-  Wire.endTransmission();
+      // say what you got:
+      Serial.print("I received: ");
+      Serial.println(incomingByte, DEC);
 
-  send_byte(chip1, GPIOA, 0x00);
-  
-  delay(500);
+      if (incomingByte == 'V') {
+         turnOn(Volts);
+      }
+      if (incomingByte == 'v') {
+         turnOff(Volts);
+      }
+  }
 }
 
+void blink() {
+  //state = !state;
+  Serial.print("int");
+}
 
 void turnOff(byte light[]) {
-  send_byte(light[0], light[1], light[2]);
+  send_byte(light[0], light[1], 0x00); // todo turns all off
 }
 
 void turnOn(byte light[]) {

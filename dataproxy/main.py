@@ -51,10 +51,12 @@ class XPlaneDataDecoder():
             values["mode"] = floats[0]
             values["squak"] = floats[1]
             values["ident"] = floats[2]
+        elif type == 113:
+            values["volts"] = floats[5]
+
         else:
             print("  Type ", type, " not implemented: ", floats)
         return values
-
 
     def DecodePacket(self, data):
         # Packet consists of 5 byte header and multiple messages.
@@ -85,11 +87,13 @@ def main():
 
     decoder = XPlaneDataDecoder()
 
-    # try:
-    #     ser = serial.Serial('/dev/ttyS0')
-    # except Exception:
-    #     print("krak")
-    #     exit(1)
+    volts = False
+
+    try:
+        ser = serial.Serial('/dev/ttyACM0')
+    except Exception:
+        print("Cannot open serial port")
+        exit(1)
 
     while True:
         # Receive a packet
@@ -101,7 +105,14 @@ def main():
         #   'altitude MSL': 1822.67, 'altitude AGL': 0.17, 'speed': 4.11,
         #   'roll': 1.05, 'pitch': -4.38, 'heading': 275.43, 'heading2': 271.84}
         values = decoder.DecodePacket(data)
-        print(values["battery_voltage"])
+
+        if values["volts"] == 1 and volts is False:
+            ser.write(b'V')
+            volts = True
+
+        if values["volts"] == 0 and volts is True:
+            ser.write(b'v')
+            volts = False
 
 
 if __name__ == '__main__':
