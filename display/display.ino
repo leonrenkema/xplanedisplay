@@ -23,9 +23,9 @@ const byte statePortB = 0x00;
 const byte interruptPin = 2;
 
 // Configuration
-byte Volts[] = { chip1,GPIOA, 0x07 };
-byte Oil_Pressure[] = { chip1,GPIOA, 0x02 };
-byte Low_Fuel[] = { chip1,GPIOA, 0x03 };
+byte Volts[] = { chip1,GPIOA, 0x02 };
+byte Oil_Pressure[] = { chip1,GPIOA, 0x04 };
+byte Low_Fuel[] = { chip1,GPIOA, 0x08 };
 
 void setup()
 {
@@ -61,12 +61,7 @@ void loop()
       Serial.print("I received: ");
       Serial.println(incomingByte, DEC);
 
-      if (incomingByte == 'V') {
-         turnOn(Volts);
-      }
-      if (incomingByte == 'v') {
-         turnOff(Volts);
-      }
+      send_byte(chip1,GPIOA,incomingByte);
   }
 }
 

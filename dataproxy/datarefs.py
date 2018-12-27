@@ -12,7 +12,25 @@ import struct
 import serial
 
 UDP_PORT = 49002
+UDP_IP = ""
+UDP_SEND_PORT = 49000
 
+drefs = [
+    # Boolean switches
+    "sim/cockpit2/switches/navigation_lights_on",
+    "sim/cockpit2/switches/strobe_lights_on",
+    "sim/cockpit2/switches/landing_lights_on",
+    "sim/cockpit2/switches/avionics_power_on",
+    "sim/cockpit/electrical/battery_on",
+    
+    # Annunciators
+    "sim/cockpit/warnings/annunciators/low_vacuum",
+    "sim/cockpit/warnings/annunciators/low_voltage",
+    "sim/cockpit/warnings/annunciators/fuel_quantity",
+    "sim/cockpit/warnings/annunciators/master_caution",
+    "sim/cockpit/warnings/annunciators/master_warning",
+    "sim/cockpit/warnings/annunciators/oil_pressure"
+]
 
 class XPlaneDataDecoder():
 
@@ -40,11 +58,6 @@ class XPlaneDataDecoder():
             values["altitude 3"] = floats[5]
         elif type == 54:
             values["battery_voltage"] = floats[0]
-        elif type == 96:
-            values["com_1_active"] = floats[0]
-            values["com_2_standby"] = floats[1]
-
-
         elif type == 104:
             # (3.0, 4700.0, 0.0, 0.10816824436187744, -999.0, -999.0, -999.0, -999.0)
 
@@ -59,7 +72,6 @@ class XPlaneDataDecoder():
         elif type == 113:
             values["oil_pressure"] = floats[4]
             values["volts"] = floats[5]
-            values["fuel"] = floats[6]
 
 
         # fuel not certain, cannot find the correct values
@@ -94,13 +106,26 @@ class XPlaneDataDecoder():
         return valuesout
 
 
+'''
+Send a dataframe to the simulator
+'''
+def send_to_simulator(socket, dref_name, data):
+    # Uitvullen van het dataframe met \0'en
+    dref_name.ljust(500 - len(dref_name), str('\0'))
+
+    packed = struct.pack("<5sf500s", b'DREF+', data, str.encode(dref_name))
+    socket.sendto(packed, (UDP_IP, UDP_SEND_PORT))
+
+
 def main():
     # Open a Socket on UDP Port 49000
-    UDP_IP = ""
+
     sock = socket.socket(socket.AF_INET,  # Internet
                          socket.SOCK_DGRAM)  # UDP
-
     sock.bind((UDP_IP, UDP_PORT))
+
+    # sock_out = socket.socket(socket.AF_INET,  # Internet
+    #                      socket.SOCK_DGRAM)  # UDP
 
     decoder = XPlaneDataDecoder()
 
@@ -121,47 +146,17 @@ def main():
 
     while True:
         # Receive a packet
-        data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
+        data, addr = sock.recvfrom(100)  # buffer size is 1024 bytes
+        # unpacked = struct.unpack("<5si500s", data)
 
-        # Decode the packet. Result is a python dict (like a map in C) with values from X-Plane.
-        # Example:
-        # {'latitude': 47.72798156738281, 'longitude': 12.434000015258789,
-        #   'altitude MSL': 1822.67, 'altitude AGL': 0.17, 'speed': 4.11,
-        #   'roll': 1.05, 'pitch': -4.38, 'heading': 275.43, 'heading2': 271.84}
-        values = decoder.DecodePacket(data)
+        header = data[0:5]
+        if header == b'DREF+':
 
-        print(int(values["com_1_active"]))
-        ser.write(bytearray(int(values["com_1_active"])))
+            unpacked = struct.unpack("<5sf91s", data)
 
-        #
-        # if values["volts"] == 1 and volts is False:
-        #     volts = True
-        #     change = True
-        #
-        # if values["volts"] == 0 and volts is True:
-        #     change = True
-        #     volts = False
-        #
-        # if values["oil_pressure"] == 1 and fuel_left is False:
-        #     fuel_left = True
-        #     change = True
-        #
-        # if values["oil_pressure"] == 0 and fuel_left is True:
-        #     change = True
-        #     fuel_left = False
-        #
-        # if change is True:
-        #     change = False
-        #     # Compute new value
-        #     new_value = 0
-        #     if volts is True:
-        #         new_value |= 2
-        #     if fuel_left is True:
-        #         new_value |= 4
-        #
-        #     if useSerial:
-        #         ser.write(bytearray([new_value]))
-
+            # send_to_simulator(sock, "sim/cockpit/radios/transponder_code", 5565.0)
+            if unpacked[1] == 1234.0:
+                send_to_simulator(sock, "sim/cockpit2/switches/strobe_lights_on", 1.0)
 
 if __name__ == '__main__':
     try:
