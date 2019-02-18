@@ -144,19 +144,50 @@ def main():
         useSerial = False
         print("Cannot open serial port")
 
+    previous_input_state = 0
+
     while True:
+
         # Receive a packet
-        data, addr = sock.recvfrom(100)  # buffer size is 1024 bytes
-        # unpacked = struct.unpack("<5si500s", data)
+        data, addr = sock.recvfrom(100)
 
         header = data[0:5]
         if header == b'DREF+':
-
             unpacked = struct.unpack("<5sf91s", data)
+            dref_name = unpacked[2].decode('ascii')
+            print(unpacked[1], dref_name)
+            write_string = str(unpacked[1]) + "\r\n"
+            ser.write(write_string.encode())
 
-            # send_to_simulator(sock, "sim/cockpit/radios/transponder_code", 5565.0)
-            if unpacked[1] == 1234.0:
-                send_to_simulator(sock, "sim/cockpit2/switches/strobe_lights_on", 1.0)
+        # Nothing in receive buffer, proceed
+        if ser.in_waiting == 0:
+            continue
+
+        incoming_serial = ser.readline(6)
+        input_status = int(incoming_serial.strip())
+
+        # Only send changes
+        if previous_input_state == input_status:
+            continue
+
+        if (input_status & 1) == 1:
+            send_to_simulator(sock, "sim/cockpit2/switches/avionics_power_on", 1.0)
+        else:
+            send_to_simulator(sock, "sim/cockpit2/switches/avionics_power_on", 0.0)
+
+        if (input_status & 2) == 2:
+            send_to_simulator(sock, "sim/cockpit2/switches/strobe_lights_on", 1.0)
+        else:
+            send_to_simulator(sock, "sim/cockpit2/switches/strobe_lights_on", 0.0)
+
+        if (input_status & 4) == 4:
+            send_to_simulator(sock, "sim/cockpit2/switches/navigation_lights_on", 1.0)
+        else:
+            send_to_simulator(sock, "sim/cockpit2/switches/navigation_lights_on", 0.0)
+
+        previous_input_state = input_status
+
+
 
 if __name__ == '__main__':
     try:
